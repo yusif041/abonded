@@ -1,1 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABONDED - Realtime Multiplayer Horror</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050508;
+            font-family: 'Rajdhani', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-creepster { font-family: 'Creepster', cursive; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(10,10,15,0.8); }
+        ::-webkit-scrollbar-thumb { background: #e53e3e; border-radius: 3px; }
+
+        /* Glowing Effects */
+        .text-glow-red { text-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(220, 38, 38, 0.6); }
+        .text-glow-blue { text-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 20px rgba(37, 99, 235, 0.6); }
+        .box-glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* Blood Vignette Overlay */
+        #vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            box-shadow: inset 0 0 100px rgba(255, 0, 0, 0);
+            transition: box-shadow 0.3s ease;
+            z-index: 10;
+        }
+        .vignette-killer {
+            box-shadow: inset 0 0 120px rgba(200, 0, 0, 0.6) !important;
+        }
+
+        .glass-panel {
+            background: rgba(15, 18, 28, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+    </style>
+</head>
+<body class="text-gray-100 dark">
+
+    <!-- Canvas for Three.js Rendering -->
+    <div id="canvas-container" class="w-full h-full absolute inset-0"></div>
+
+    <!-- Screen Vignette Overlay -->
+    <div id="vignette"></div>
+
+    <!-- HUD Crosshair -->
+    <div id="crosshair" class="hidden">
+        <div class="w-2.5 h-2.5 bg-white rounded-full opacity-80 shadow-[0_0_8px_white]"></div>
+    </div>
+
+    <!-- UI LAYER OVERLAYS -->
+    <div id="ui-layer" class="relative z-30 w-full h-screen pointer-events-none">
+
+        <!-- 1. MAIN LAUNCHER MENU -->
+        <div id="start-menu" class="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-opacity duration-300">
+            <div class="text-center max-w-2xl px-6 w-full">
+                <h1 class="text-7xl md:text-9xl font-creepster text-red-600 text-glow-red tracking-wider mb-2">ABONDED</h1>
+                <p class="text-lg md:text-xl font-orbitron text-gray-400 mb-8 tracking-widest uppercase">Multiplayer Horror Labyrinth</p>
+
+                <!-- Server Mode Selection Buttons -->
+                <div class="space-y-4 max-w-md mx-auto mb-6">
+                    <button id="btn-public-server" class="w-full py-4 bg-red-700 hover:bg-red-600 text-white font-orbitron font-bold text-xl rounded-xl shadow-lg box-glow-red transition duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-globe"></i> PUBLIC SERVER
+                    </button>
+                    <button id="btn-create-private" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-amber-400 font-orbitron font-bold text-lg rounded-xl border border-amber-900/50 transition duration-200 flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-lock"></i> CREATE PRIVATE SERVER
+                    </button>
+                    <button id="btn-join-private" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-blue-400 font-orbitron font-bold text-lg rounded-xl border border-blue-900/50 transition duration-200 flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-right-to-bracket"></i> JOIN PRIVATE SERVER
+                    </button>
+                </div>
+
+                <!-- Secondary Control Buttons -->
+                <div class="flex gap-4 max-w-md mx-auto">
+                    <button id="btn-options" class="flex-1 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-gray-300 font-orbitron font-semibold text-sm rounded-lg border border-slate-700 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-sliders"></i> SETTINGS
+                    </button>
+                    <button id="btn-howtoplay" class="flex-1 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-gray-300 font-orbitron font-semibold text-sm rounded-lg border border-slate-700 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-circle-question"></i> CONTROLS
+                    </button>
+                </div>
+
+                <div id="database-status" class="mt-8 text-xs text-emerald-400 font-mono flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Firebase Europe-West1 Connected
+                </div>
+            </div>
+        </div>
+
+        <!-- PRIVATE ROOM CODE MODAL -->
+        <div id="private-code-modal" class="pointer-events-auto hidden absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md">
+            <div class="glass-panel w-full max-w-md p-8 rounded-2xl border border-blue-900/40 shadow-2xl text-center">
+                <h2 class="text-3xl font-orbitron text-blue-400 mb-2 font-bold flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-key"></i> JOIN PRIVATE ROOM
+                </h2>
+                <p class="text-xs text-gray-400 mb-6">Enter 6-Digit Room Code</p>
+
+                <input id="room-code-input" type="text" maxlength="6" placeholder="e.g. 849201" class="w-full px-4 py-3 bg-slate-900 border border-blue-500/50 rounded-xl text-center font-mono text-2xl tracking-widest text-amber-400 focus:outline-none focus:border-amber-400 mb-6 uppercase">
+
+                <div class="flex gap-3">
+                    <button id="btn-confirm-join" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-orbitron font-bold rounded-xl transition">
+                        CONNECT
+                    </button>
+                    <button id="btn-cancel-join" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-gray-300 font-orbitron font-semibold rounded-xl transition">
+                        CANCEL
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OPTIONS MODAL -->
+        <div id="options-menu" class="pointer-events-auto hidden absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md">
+            <div class="glass-panel w-full max-w-md p-8 rounded-2xl border border-red-900/40 shadow-2xl">
+                <h2 class="text-3xl font-orbitron text-red-500 mb-6 font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-gear"></i> GAME SETTINGS
+                </h2>
+
+                <div class="space-y-6">
+                    <div>
+                        <div class="flex justify-between text-sm font-semibold mb-2">
+                            <span class="text-gray-300">Field of View (FOV)</span>
+                            <span id="fov-value" class="text-red-400 font-mono">75°</span>
+                        </div>
+                        <input id="fov-slider" type="range" min="60" max="110" value="75" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-600">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-sm font-semibold mb-2">
+                            <span class="text-gray-300">Mouse Sensitivity</span>
+                            <span id="sens-value" class="text-red-400 font-mono">1.0</span>
+                        </div>
+                        <input id="sens-slider" type="range" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-600">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-300">Your Nickname</label>
+                        <input id="player-name-input" type="text" maxlength="12" value="Player1" class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg focus:outline-none focus:border-red-500 font-mono text-gray-200">
+                    </div>
+                </div>
+
+                <button id="btn-close-options" class="mt-8 w-full py-3 bg-red-700 hover:bg-red-600 text-white font-orbitron font-bold rounded-xl transition">
+                    SAVE & CLOSE
+                </button>
+            </div>
+        </div>
+
+        <!-- HOW TO PLAY MODAL -->
+        <div id="howtoplay-menu" class="pointer-events-auto hidden absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md">
+            <div class="glass-panel w-full max-w-lg p-8 rounded-2xl border border-red-900/40 shadow-2xl text-gray-300">
+                <h2 class="text-3xl font-orbitron text-red-500 mb-4 font-bold">CONTROLS & SURVIVAL</h2>
+                <div class="space-y-3 text-sm leading-relaxed mb-6">
+                    <p><strong class="text-blue-400">Survivors:</strong> Repair 5 generators in the maze before the killer catches you. Hold <span class="px-2 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-white">E</span> near generators.</p>
+                    <p><strong class="text-red-400">The Killer:</strong> Selected randomly each round. Use Left Click <span class="px-2 py-0.5 bg-slate-800 border border-slate-600 rounded font-mono text-white">LMB</span> to swing the knife!</p>
+                    <p><strong class="text-amber-400">Controls:</strong> <span class="font-mono text-white">WASD</span> Move | <span class="font-mono text-white">Mouse</span> Look | <span class="font-mono text-white">SHIFT</span> Sprint | <span class="font-mono text-white">E</span> Repair | <span class="font-mono text-white">ESC</span> Pause</p>
+                </div>
+                <button id="btn-close-howtoplay" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-orbitron font-bold rounded-xl transition">
+                    GOT IT
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. LOBBY HUD OVERLAY -->
+        <div id="lobby-ui" class="hidden absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+            <div class="glass-panel px-6 py-3 rounded-full flex items-center gap-6 border border-red-900/40 shadow-2xl">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-server text-blue-400"></i>
+                    <span class="text-xs font-orbitron">SERVER: <strong id="hud-server-id" class="text-amber-400 font-mono">PUBLIC-01</strong></span>
+                </div>
+                <div class="h-4 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-users text-red-500"></i>
+                    <span class="text-xs font-orbitron">PLAYERS: <strong id="lobby-player-count" class="text-red-400">1</strong></span>
+                </div>
+                <div class="h-4 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-amber-500"></i>
+                    <span class="text-xs font-orbitron">INTER-ROUND TIMER: <strong id="lobby-timer" class="text-amber-400">15s</strong></span>
+                </div>
+            </div>
+
+            <div class="glass-panel px-4 py-2 rounded-xl flex gap-3 text-xs font-semibold items-center">
+                <span class="text-gray-400">Map Weather:</span>
+                <button id="btn-time-night" class="px-3 py-1 bg-indigo-900/80 border border-indigo-500 text-white rounded transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-moon text-amber-300"></i> Night & Moon
+                </button>
+                <button id="btn-time-day" class="px-3 py-1 bg-slate-800 border border-slate-700 text-gray-400 rounded transition hover:text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-sun text-amber-500"></i> Sunny Day
+                </button>
+            </div>
+
+            <div class="glass-panel px-4 py-1.5 rounded-lg text-xs text-amber-400 font-orbitron animate-pulse">
+                Click Screen to Lock Pointer & Move | Waiting for Round Start...
+            </div>
+        </div>
+
+        <!-- 3. IN-GAME MATCH HUD -->
+        <div id="game-hud" class="hidden absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
+            <!-- Top Bar -->
+            <div class="flex justify-between items-start">
+                <div class="glass-panel p-4 rounded-xl border border-red-900/40 min-w-[220px]">
+                    <div class="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">Your Role</div>
+                    <div id="hud-role" class="text-2xl font-orbitron font-black text-blue-400 text-glow-blue flex items-center gap-2">
+                        <i class="fa-solid fa-user-shield"></i> SURVIVOR
+                    </div>
+                    <div id="hud-status" class="text-xs text-gray-400 mt-1 font-mono">Objective: Repair 5 Generators</div>
+                </div>
+
+                <div class="flex gap-4">
+                    <div class="glass-panel px-6 py-3 rounded-xl border border-red-900/40 text-center">
+                        <div class="text-[10px] text-gray-400 uppercase tracking-wider">Tasks Done</div>
+                        <div id="hud-gens" class="text-3xl font-orbitron font-extrabold text-amber-400">0 / 5</div>
+                    </div>
+                    <div class="glass-panel px-6 py-3 rounded-xl border border-red-900/40 text-center min-w-[110px]">
+                        <div class="text-[10px] text-gray-400 uppercase tracking-wider">Round Time</div>
+                        <div id="hud-match-timer" class="text-3xl font-orbitron font-extrabold text-red-500">05:00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interaction Prompt -->
+            <div id="interaction-prompt" class="hidden self-center glass-panel px-6 py-3 rounded-xl border border-amber-500/50 text-center animate-pulse">
+                <span class="text-base font-orbitron font-bold text-amber-400">
+                    HOLD [<span class="text-white">E</span>] TO REPAIR GENERATOR
+                </span>
+                <div class="w-full bg-slate-800 h-2 rounded-full mt-2 overflow-hidden border border-slate-700">
+                    <div id="gen-progress-bar" class="bg-amber-500 h-full w-0 transition-all duration-75"></div>
+                </div>
+            </div>
+
+            <!-- Bottom Vitals HUD & Database Live Dashboard -->
+            <div class="flex justify-between items-end">
+                <div class="max-w-xs w-full">
+                    <!-- Health Bar -->
+                    <div class="mb-2">
+                        <div class="flex justify-between text-xs font-bold mb-1 font-orbitron">
+                            <span class="text-red-400"><i class="fa-solid fa-heart mr-1"></i> HEALTH</span>
+                            <span id="hud-health-val" class="text-red-400 font-mono">100 / 100</span>
+                        </div>
+                        <div class="w-full h-3.5 bg-slate-900/80 rounded-full p-0.5 border border-red-900/50">
+                            <div id="hud-health-bar" class="bg-gradient-to-r from-red-700 to-red-500 h-full rounded-full transition-all duration-200 w-full shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
+                        </div>
+                    </div>
+
+                    <!-- Stamina Bar -->
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1 font-orbitron">
+                            <span id="stamina-label" class="text-blue-400"><i class="fa-solid fa-bolt mr-1"></i> STAMINA</span>
+                            <span id="hud-stamina-val" class="text-blue-400 font-mono">100%</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-slate-900/80 rounded-full p-0.5 border border-blue-900/50">
+                            <div id="hud-stamina-bar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-full rounded-full transition-all duration-150 w-full shadow-[0_0_6px_rgba(59,130,246,0.5)]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Database Live Metrics Dashboard -->
+                <div class="glass-panel p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-gray-400 space-y-1 min-w-[240px]">
+                    <div class="text-emerald-400 font-bold flex justify-between">
+                        <span><i class="fa-solid fa-database mr-1"></i> REALTIME DATABASE</span>
+                        <span id="db-ping">LIVE</span>
+                    </div>
+                    <div>MY POSITION: <span class="text-amber-400 font-bold">X:<span id="sync-x">0.00</span> Z:<span id="sync-z">0.00</span></span></div>
+                    <div>KILLER NICKNAME: <span id="sync-killer" class="text-red-400 font-bold">SELECTING...</span></div>
+                    <div>TOTAL PLAYERS: <span id="sync-players" class="text-blue-400 font-bold">1</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. PAUSE MENU (ESC) -->
+        <div id="pause-menu" class="pointer-events-auto hidden absolute inset-0 flex items-center justify-center bg-black/85 backdrop-blur-md">
+            <div class="glass-panel w-full max-w-md p-8 rounded-2xl border border-red-900/40 shadow-2xl text-center space-y-4">
+                <h2 class="text-4xl font-orbitron font-black text-red-600 text-glow-red mb-6">GAME PAUSED</h2>
+
+                <button id="btn-resume" class="w-full py-3 bg-red-700 hover:bg-red-600 text-white font-orbitron font-bold rounded-xl box-glow-red transition">
+                    RESUME MATCH
+                </button>
+                <button id="btn-pause-options" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-gray-200 font-orbitron font-semibold rounded-xl border border-slate-600 transition">
+                    SETTINGS (FOV)
+                </button>
+                <button id="btn-return-lobby" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 font-orbitron font-semibold rounded-xl border border-amber-900/50 transition">
+                    RETURN TO LOBBY
+                </button>
+                <button id="btn-return-start" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-red-400 font-orbitron font-semibold rounded-xl border border-red-900/50 transition">
+                    MAIN MENU
+                </button>
+            </div>
+        </div>
+
+        <!-- 5. MATCH RESULT OVERLAY -->
+        <div id="result-screen" class="pointer-events-auto hidden absolute inset-0 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg text-center p-6">
+            <h2 id="result-title" class="text-6xl md:text-8xl font-creepster text-red-600 text-glow-red mb-4">MATCH OVER</h2>
+            <p id="result-desc" class="text-xl font-orbitron text-gray-300 mb-8 max-w-lg">Returning to lobby...</p>
+            <button id="btn-result-lobby" class="px-8 py-4 bg-red-700 hover:bg-red-600 text-white font-orbitron font-bold text-lg rounded-xl box-glow-red transition">
+                BACK TO LOBBY
+            </button>
+        </div>
+
+    </div>
+
+    <!-- FIREBASE REALTIME DATABASE MODULE ENGINE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, update, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Firebase Configuration using your exact Europe-West1 database URL
+        const firebaseConfig = {
+            databaseURL: "https://abonded-418cc-default-rtdb.europe-west1.firebasedatabase.app/"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Global State Variables
+        window.myUserId = "user_" + Math.floor(Math.random() * 899999 + 100000);
+        window.myName = "Player_" + Math.floor(Math.random() * 89 + 10);
+        window.activeServerId = "PUBLIC-01";
+        window.currentRole = "SURVIVOR";
+        window.currentGameState = "MENU";
+        window.weatherMode = "night";
+
+        // Three.js Core Variables
+        let scene, camera, renderer, clock;
+        let pitchObject, yawObject;
+        let isPointerLocked = false;
+
+        // Player Vitals & Physics Properties
+        window.playerHealth = 100;
+        window.stamina = 100;
+        let isExhausted = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isSprinting = false;
+        let velocity = new THREE.Vector3();
+        let playerBoundingRadius = 0.7;
+        let mouseSens = 1.0;
+        let userFov = 75;
+
+        // Lights & Knife Model
+        let dirLight, ambientLight, moonMesh;
+        let knifeGroup, knifeBlade, knifeArm;
+        let attackCooldown = false;
+
+        // Interactive Maps & Objects
+        let mapCollisionObjects = [];
+        let generators = [];
+        let otherPlayerMeshes = {};
+        let genRepairProgress = [0, 0, 0, 0, 0];
+        let totalGensRepaired = 0;
+        let currentNearbyGen = null;
+
+        // Database Synced States
+        let dbLobbyTimer = 15;
+        let dbMatchTimer = 300;
+        let killerNickname = "Selecting...";
+        let onlinePlayers = {};
+
+        // Audio Context
+        let audioCtx = null;
+
+        // Labyrinth Map Layout Grid
+        const MAZE_GRID = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,0,0,1,0,0,0,0,1,0,0,0,0,1,0,0,2,1],
+            [1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,1,1],
+            [1,0,0,0,0,0,1,2,0,0,0,0,1,0,0,0,0,0,1],
+            [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+            [1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1],
+            [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+            [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
+            [1,2,0,0,1,0,0,0,1,2,1,0,0,0,1,0,0,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+        const CELL_SIZE = 6;
+
+        // ----------------------------------------------------
+        // 1. FIREBASE REALTIME MULTIPLAYER DATABASE SYNC
+        // ----------------------------------------------------
+        window.connectToDatabaseRoom = function(roomId) {
+            window.activeServerId = roomId;
+            document.getElementById('hud-server-id').innerText = roomId;
+
+            const roomRef = ref(db, `abonded_rooms/${roomId}`);
+            const myPlayerRef = ref(db, `abonded_rooms/${roomId}/players/${window.myUserId}`);
+
+            // Automatically clean up on disconnect
+            onDisconnect(myPlayerRef).remove();
+
+            // Set Initial Player Data in Database
+            set(myPlayerRef, {
+                id: window.myUserId,
+                name: window.myName,
+                x: 0, y: 1.6, z: 0,
+                rotY: 0,
+                health: 100,
+                stamina: 100,
+                role: 'SURVIVOR'
+            });
+
+            // Realtime Listener for Database Updates
+            onValue(roomRef, (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                // 1. Sync Players & Coordinates
+                if (data.players) {
+                    onlinePlayers = data.players;
+                    const pKeys = Object.keys(data.players);
+                    document.getElementById('lobby-player-count').innerText = pKeys.length;
+                    document.getElementById('sync-players').innerText = pKeys.length;
+
+                    // Update local role based on database killer assignment
+                    if (data.matchState && data.matchState.killerId) {
+                        if (data.matchState.killerId === window.myUserId) {
+                            if (window.currentRole !== 'KILLER') setRole('KILLER');
+                        } else {
+                            if (window.currentRole !== 'SURVIVOR') setRole('SURVIVOR');
+                        }
+                    }
+
+                    // Render 3D avatars for other players
+                    updateRemotePlayerAvatars(data.players);
+                }
+
+                // 2. Sync Match Timers & Killer Nickname
+                if (data.matchState) {
+                    if (data.matchState.betweenRoundsTimer !== undefined) {
+                        dbLobbyTimer = data.matchState.betweenRoundsTimer;
+                        document.getElementById('lobby-timer').innerText = `${dbLobbyTimer}s`;
+                    }
+                    if (data.matchState.roundTimer !== undefined) {
+                        dbMatchTimer = data.matchState.roundTimer;
+                        const m = Math.floor(dbMatchTimer / 60);
+                        const s = dbMatchTimer % 60;
+                        document.getElementById('hud-match-timer').innerText = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+                    }
+                    if (data.matchState.killerName) {
+                        killerNickname = data.matchState.killerName;
+                        document.getElementById('sync-killer').innerText = killerNickname;
+                    }
+                }
+
+                // 3. Sync Task Progress (Generators)
+                if (data.generators) {
+                    let doneCount = 0;
+                    Object.keys(data.generators).forEach(gId => {
+                        const prog = data.generators[gId].progress || 0;
+                        genRepairProgress[gId] = prog;
+                        if (generators[gId]) {
+                            if (prog >= 100) {
+                                generators[gId].lightMesh.material.color.setHex(0x00ff44);
+                                doneCount++;
+                            }
+                        }
+                    });
+                    totalGensRepaired = doneCount;
+                    document.getElementById('hud-gens').innerText = `${totalGensRepaired} / 5`;
+                }
+            });
+
+            switchGameState('LOBBY');
+        };
+
+        function syncMyPositionToDatabase() {
+            if (window.currentGameState !== 'PLAYING' && window.currentGameState !== 'LOBBY') return;
+
+            const myPlayerRef = ref(db, `abonded_rooms/${window.activeServerId}/players/${window.myUserId}`);
+            update(myPlayerRef, {
+                x: yawObject.position.x,
+                y: yawObject.position.y,
+                z: yawObject.position.z,
+                rotY: yawObject.rotation.y,
+                health: window.playerHealth,
+                stamina: window.stamina,
+                role: window.currentRole
+            });
+        }
+
+        // Timer interval logic
+        setInterval(() => {
+            if (window.currentGameState === 'MENU') return;
+
+            const roomRef = ref(db, `abonded_rooms/${window.activeServerId}/matchState`);
+            
+            if (window.currentGameState === 'LOBBY') {
+                if (dbLobbyTimer > 0) {
+                    dbLobbyTimer--;
+                    update(roomRef, { betweenRoundsTimer: dbLobbyTimer });
+                } else {
+                    startMatchRoundInDatabase();
+                }
+            } else if (window.currentGameState === 'PLAYING') {
+                if (dbMatchTimer > 0) {
+                    dbMatchTimer--;
+                    update(roomRef, { roundTimer: dbMatchTimer });
+                } else {
+                    triggerMatchEnd("TIME EXPIRED!", "Survivors ran out of time!");
+                }
+            }
+        }, 1000);
+
+        function startMatchRoundInDatabase() {
+            const pKeys = Object.keys(onlinePlayers);
+            if (pKeys.length === 0) pKeys.push(window.myUserId);
+
+            const chosenKillerId = pKeys[Math.floor(Math.random() * pKeys.length)];
+            const chosenKillerName = onlinePlayers[chosenKillerId] ? onlinePlayers[chosenKillerId].name : "Killer";
+
+            const roomStateRef = ref(db, `abonded_rooms/${window.activeServerId}/matchState`);
+            update(roomStateRef, {
+                killerId: chosenKillerId,
+                killerName: chosenKillerName,
+                roundTimer: 300,
+                betweenRoundsTimer: 15
+            });
+
+            for (let i = 0; i < 5; i++) {
+                update(ref(db, `abonded_rooms/${window.activeServerId}/generators/${i}`), { progress: 0 });
+            }
+
+            switchGameState('PLAYING');
+        }
+
+        // ----------------------------------------------------
+        // 2. THREE.JS 3D SCENE & MAP BUILDING
+        // ----------------------------------------------------
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x05050e, 0.04);
+
+            camera = new THREE.PerspectiveCamera(userFov, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            pitchObject = new THREE.Object3D();
+            pitchObject.add(camera);
+            yawObject = new THREE.Object3D();
+            yawObject.position.set(0, 1.6, 0);
+            yawObject.add(pitchObject);
+            scene.add(yawObject);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            const flashlight = new THREE.SpotLight(0xfffaed, 2.5, 35, Math.PI / 5, 0.4, 1);
+            flashlight.position.set(0, 0, 0);
+            flashlight.target.position.set(0, 0, -1);
+            camera.add(flashlight);
+            camera.add(flashlight.target);
+
+            ambientLight = new THREE.AmbientLight(0x181a28, 0.6);
+            scene.add(ambientLight);
+
+            dirLight = new THREE.DirectionalLight(0x7080b0, 0.8);
+            dirLight.position.set(20, 50, 20);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const moonGeo = new THREE.SphereGeometry(6, 16, 16);
+            const moonMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            moonMesh.position.set(60, 100, -80);
+            scene.add(moonMesh);
+
+            createKnifeWeapon();
+            buildLabyrinthMap();
+
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            container.addEventListener('click', () => {
+                if (window.currentGameState === 'LOBBY' || window.currentGameState === 'PLAYING') {
+                    requestPointerLock();
+                }
+            });
+        }
+
+        function createWallTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#181b22'; ctx.fillRect(0, 0, 256, 256);
+            ctx.strokeStyle = '#2d3340'; ctx.lineWidth = 4;
+            for (let i = 0; i < 256; i += 32) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke();
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function createFloorTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0c0e12'; ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#161922';
+            for (let i = 0; i < 300; i++) {
+                ctx.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function buildLabyrinthMap() {
+            mapCollisionObjects.forEach(obj => scene.remove(obj));
+            mapCollisionObjects = [];
+            generators = [];
+
+            const wallTex = createWallTexture();
+            const floorTex = createFloorTexture();
+            wallTex.repeat.set(2, 2);
+            floorTex.repeat.set(12, 12);
+
+            const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.7 });
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.6 });
+
+            const rows = MAZE_GRID.length;
+            const cols = MAZE_GRID[0].length;
+            const offsetX = (cols * CELL_SIZE) / 2;
+            const offsetZ = (rows * CELL_SIZE) / 2;
+
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(cols * CELL_SIZE, rows * CELL_SIZE), floorMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            let genCounter = 0;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = c * CELL_SIZE - offsetX + CELL_SIZE / 2;
+                    const z = r * CELL_SIZE - offsetZ + CELL_SIZE / 2;
+                    const type = MAZE_GRID[r][c];
+
+                    if (type === 1) {
+                        const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 6, CELL_SIZE);
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(x, 3, z);
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        scene.add(wall);
+                        mapCollisionObjects.push(wall);
+                    } else if (type === 2) {
+                        createGeneratorStation(x, z, genCounter++);
+                    }
+                }
+            }
+        }
+
+        function createGeneratorStation(x, z, id) {
+            const group = new THREE.Group();
+
+            const baseGeo = new THREE.BoxGeometry(2.4, 2, 2.4);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x333742, metalness: 0.7, roughness: 0.3 });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = 1;
+            base.castShadow = true;
+            group.add(base);
+
+            const lightGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+            const lightMesh = new THREE.Mesh(lightGeo, lightMat);
+            lightMesh.position.set(0, 2.3, 0);
+            group.add(lightMesh);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+
+            const genObj = { id, mesh: group, lightMesh, x, z, radius: 2.2 };
+            generators.push(genObj);
+            mapCollisionObjects.push(base);
+        }
+
+        function createKnifeWeapon() {
+            knifeGroup = new THREE.Group();
+
+            const bladeGeo = new THREE.BoxGeometry(0.08, 0.8, 0.15);
+            const bladeMat = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, metalness: 0.9, roughness: 0.1 });
+            knifeBlade = new THREE.Mesh(bladeGeo, bladeMat);
+            knifeBlade.position.set(0, 0.4, -0.1);
+            knifeBlade.rotation.x = Math.PI / 6;
+
+            const handleGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.position.set(0, 0, 0);
+
+            knifeArm = new THREE.Group();
+            knifeArm.add(knifeBlade);
+            knifeArm.add(handle);
+
+            knifeGroup.add(knifeArm);
+            knifeGroup.position.set(0.35, -0.35, -0.5);
+            knifeGroup.rotation.y = -Math.PI / 8;
+            camera.add(knifeGroup);
+            knifeGroup.visible = false;
+        }
+
+        // ----------------------------------------------------
+        // 3. MOVEMENT & COLLISION PHYSICS ENGINE
+        // ----------------------------------------------------
+        function updatePlayerMovement(delta) {
+            if (window.currentGameState !== 'PLAYING' && window.currentGameState !== 'LOBBY') return;
+
+            const isMoving = (moveForward || moveBackward || moveLeft || moveRight);
+            if (isSprinting && isMoving && !isExhausted) {
+                window.stamina = Math.max(0, window.stamina - delta * 32);
+                if (window.stamina === 0) {
+                    isExhausted = true;
+                    isSprinting = false;
+                }
+            } else {
+                window.stamina = Math.min(100, window.stamina + delta * 20);
+                if (isExhausted && window.stamina >= 25) {
+                    isExhausted = false;
+                }
+            }
+
+            const staminaBar = document.getElementById('hud-stamina-bar');
+            const staminaVal = document.getElementById('hud-stamina-val');
+            const staminaLabel = document.getElementById('stamina-label');
+            if (staminaBar) {
+                staminaBar.style.width = `${window.stamina}%`;
+                staminaVal.innerText = `${Math.round(window.stamina)}%`;
+                if (isExhausted) {
+                    staminaBar.className = "bg-red-600 h-full rounded-full transition-all duration-150 w-full animate-pulse";
+                    staminaLabel.className = "text-red-500 animate-pulse font-bold";
+                    staminaVal.innerText = "EXHAUSTED!";
+                } else {
+                    staminaBar.className = "bg-gradient-to-r from-blue-600 to-cyan-400 h-full rounded-full transition-all duration-150 w-full shadow-[0_0_6px_rgba(59,130,246,0.5)]";
+                    staminaLabel.className = "text-blue-400 font-bold";
+                }
+            }
+
+            let speed = (window.currentRole === 'KILLER') ? 10.0 : 6.8;
+            if (isSprinting && !isExhausted) speed *= 1.55;
+
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+
+            const forwardVector = new THREE.Vector3();
+            camera.getWorldDirection(forwardVector);
+            forwardVector.y = 0;
+            forwardVector.normalize();
+
+            const sideVector = new THREE.Vector3();
+            sideVector.crossVectors(camera.up, forwardVector).normalize();
+
+            const moveDir = new THREE.Vector3();
+            if (moveForward) moveDir.add(forwardVector);
+            if (moveBackward) moveDir.sub(forwardVector);
+            if (moveLeft) moveDir.add(sideVector);
+            if (moveRight) moveDir.sub(sideVector);
+            moveDir.normalize();
+
+            if (isMoving) {
+                velocity.x += moveDir.x * speed * 12.0 * delta;
+                velocity.z += moveDir.z * speed * 12.0 * delta;
+            }
+
+            const oldPos = yawObject.position.clone();
+
+            yawObject.position.x += velocity.x * delta;
+            if (checkWallCollisions()) yawObject.position.x = oldPos.x;
+
+            yawObject.position.z += velocity.z * delta;
+            if (checkWallCollisions()) yawObject.position.z = oldPos.z;
+
+            document.getElementById('sync-x').innerText = yawObject.position.x.toFixed(2);
+            document.getElementById('sync-z').innerText = yawObject.position.z.toFixed(2);
+
+            checkGeneratorProximity();
+            syncMyPositionToDatabase();
+        }
+
+        function checkWallCollisions() {
+            const p = yawObject.position;
+            const r = playerBoundingRadius;
+            const pBox = new THREE.Box3(
+                new THREE.Vector3(p.x - r, 0, p.z - r),
+                new THREE.Vector3(p.x + r, 3, p.z + r)
+            );
+
+            for (let i = 0; i < mapCollisionObjects.length; i++) {
+                const box = new THREE.Box3().setFromObject(mapCollisionObjects[i]);
+                if (box.intersectsBox(pBox)) return true;
+            }
+            return false;
+        }
+
+        // ----------------------------------------------------
+        // 4. GENERATORS & KNIFE ATTACKS
+        // ----------------------------------------------------
+        function checkGeneratorProximity() {
+            currentNearbyGen = null;
+            const prompt = document.getElementById('interaction-prompt');
+
+            if (window.currentRole === 'KILLER' || window.currentGameState !== 'PLAYING') {
+                prompt.classList.add('hidden');
+                return;
+            }
+
+            const p = yawObject.position;
+            generators.forEach(gen => {
+                const dist = Math.hypot(p.x - gen.x, p.z - gen.z);
+                if (dist < gen.radius) currentNearbyGen = gen;
+            });
+
+            if (currentNearbyGen && genRepairProgress[currentNearbyGen.id] < 100) {
+                prompt.classList.remove('hidden');
+                document.getElementById('gen-progress-bar').style.width = `${genRepairProgress[currentNearbyGen.id]}%`;
+
+                if (window.keysPressed && window.keysPressed['KeyE']) {
+                    genRepairProgress[currentNearbyGen.id] = Math.min(100, genRepairProgress[currentNearbyGen.id] + 0.4);
+                    playSynthSound('repair');
+
+                    update(ref(db, `abonded_rooms/${window.activeServerId}/generators/${currentNearbyGen.id}`), {
+                        progress: genRepairProgress[currentNearbyGen.id]
+                    });
+
+                    if (genRepairProgress[currentNearbyGen.id] === 100) {
+                        currentNearbyGen.lightMesh.material.color.setHex(0x00ff44);
+                        playSynthSound('chime');
+                    }
+                }
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        function performKnifeSlash() {
+            if (window.currentRole !== 'KILLER' || attackCooldown || !knifeGroup) return;
+
+            attackCooldown = true;
+            playSynthSound('slash');
+
+            let startTime = performance.now();
+            function animateSlash() {
+                let elapsed = (performance.now() - startTime) / 1000;
+                if (elapsed < 0.25) {
+                    knifeArm.rotation.x = -Math.sin(elapsed * Math.PI * 4) * 0.8;
+                    knifeArm.rotation.z = Math.sin(elapsed * Math.PI * 4) * 0.5;
+                    requestAnimationFrame(animateSlash);
+                } else {
+                    knifeArm.rotation.set(0, 0, 0);
+                    setTimeout(() => attackCooldown = false, 400);
+                }
+            }
+            animateSlash();
+
+            const p = yawObject.position;
+            Object.keys(onlinePlayers).forEach(id => {
+                if (id === window.myUserId) return;
+                const other = onlinePlayers[id];
+                const dist = Math.hypot(p.x - other.x, p.z - other.z);
+                if (dist < 2.5 && other.health > 0) {
+                    const newHealth = Math.max(0, other.health - 40);
+                    update(ref(db, `abonded_rooms/${window.activeServerId}/players/${id}`), { health: newHealth });
+                    playSynthSound('hit');
+                }
+            });
+        }
+
+        function updateRemotePlayerAvatars(players) {
+            Object.keys(players).forEach(id => {
+                if (id === window.myUserId) return;
+
+                const pData = players[id];
+                if (!otherPlayerMeshes[id]) {
+                    const group = new THREE.Group();
+
+                    const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 12);
+                    const bodyMat = new THREE.MeshStandardMaterial({
+                        color: (pData.role === 'KILLER') ? 0xd92626 : 0x2b6cb0
+                    });
+                    const body = new THREE.Mesh(bodyGeo, bodyMat);
+                    body.position.y = 0.9;
+                    group.add(body);
+
+                    const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
+                    const headMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
+                    const head = new THREE.Mesh(headGeo, headMat);
+                    head.position.y = 2.0;
+                    group.add(head);
+
+                    scene.add(group);
+                    otherPlayerMeshes[id] = group;
+                }
+
+                otherPlayerMeshes[id].position.set(pData.x, pData.y - 1.6, pData.z);
+                otherPlayerMeshes[id].rotation.y = pData.rotY;
+            });
+
+            Object.keys(otherPlayerMeshes).forEach(id => {
+                if (!players[id]) {
+                    scene.remove(otherPlayerMeshes[id]);
+                    delete otherPlayerMeshes[id];
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // 5. AUDIO SYNTHESIZER
+        // ----------------------------------------------------
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSynthSound(type) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (type === 'slash') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'hit') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'chime') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now);
+                osc.frequency.setValueAtTime(880, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now); osc.stop(now + 0.4);
+            }
+        }
+
+        function setRole(role) {
+            window.currentRole = role;
+            const roleHUD = document.getElementById('hud-role');
+            const statusHUD = document.getElementById('hud-status');
+            const vignette = document.getElementById('vignette');
+
+            if (role === 'KILLER') {
+                roleHUD.innerHTML = `<i class="fa-solid fa-skull"></i> THE KILLER`;
+                roleHUD.className = "text-2xl font-orbitron font-black text-red-600 text-glow-red flex items-center gap-2";
+                statusHUD.innerText = "Objective: Eliminate all survivors!";
+                vignette.classList.add('vignette-killer');
+                if (knifeGroup) knifeGroup.visible = true;
+            } else {
+                roleHUD.innerHTML = `<i class="fa-solid fa-user-shield"></i> SURVIVOR`;
+                roleHUD.className = "text-2xl font-orbitron font-black text-blue-400 text-glow-blue flex items-center gap-2";
+                statusHUD.innerText = "Objective: Repair 5 Generators";
+                vignette.classList.remove('vignette-killer');
+                if (knifeGroup) knifeGroup.visible = false;
+            }
+        }
+
+        // ----------------------------------------------------
+        // 6. CONTROLS & INPUTS
+        // ----------------------------------------------------
+        function onMouseMove(event) {
+            if (!isPointerLocked) return;
+            yawObject.rotation.y -= (event.movementX || 0) * 0.002 * mouseSens;
+            pitchObject.rotation.x -= (event.movementY || 0) * 0.002 * mouseSens;
+            pitchObject.rotation.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitchObject.rotation.x));
+        }
+
+        function onMouseDown(e) {
+            initAudio();
+            if (e.button === 0) performKnifeSlash();
+        }
+
+        window.keysPressed = {};
+        function onKeyDown(e) {
+            window.keysPressed[e.code] = true;
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') moveForward = true;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBackward = true;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLeft = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRight = true;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') isSprinting = true;
+            if (e.code === 'Escape' && window.currentGameState === 'PLAYING') switchGameState('PAUSED');
+        }
+
+        function onKeyUp(e) {
+            window.keysPressed[e.code] = false;
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') moveForward = false;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBackward = false;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLeft = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRight = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') isSprinting = false;
+        }
+
+        function requestPointerLock() {
+            document.body.requestPointerLock();
+        }
+
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = (document.pointerLockElement === document.body);
+            document.getElementById('crosshair').style.display = isPointerLocked ? 'block' : 'none';
+        });
+
+        function switchGameState(newState) {
+            window.currentGameState = newState;
+
+            const startMenu = document.getElementById('start-menu');
+            const lobbyUI = document.getElementById('lobby-ui');
+            const gameHUD = document.getElementById('game-hud');
+            const pauseMenu = document.getElementById('pause-menu');
+            const resultScreen = document.getElementById('result-screen');
+
+            startMenu.classList.add('hidden');
+            lobbyUI.classList.add('hidden');
+            gameHUD.classList.add('hidden');
+            pauseMenu.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+
+            if (newState === 'MENU') {
+                startMenu.classList.remove('hidden');
+                document.exitPointerLock();
+            } else if (newState === 'LOBBY') {
+                lobbyUI.classList.remove('hidden');
+                yawObject.position.set(0, 1.6, 0);
+                requestPointerLock();
+            } else if (newState === 'PLAYING') {
+                gameHUD.classList.remove('hidden');
+                requestPointerLock();
+            } else if (newState === 'PAUSED') {
+                pauseMenu.classList.remove('hidden');
+                document.exitPointerLock();
+            }
+        }
+
+        function triggerMatchEnd(title, desc) {
+            window.currentGameState = 'END';
+            document.exitPointerLock();
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-desc').innerText = desc;
+            document.getElementById('result-screen').classList.remove('hidden');
+        }
+
+        // Launcher Event Listeners
+        document.getElementById('btn-public-server').addEventListener('click', () => {
+            initAudio();
+            window.connectToDatabaseRoom('PUBLIC-01');
+        });
+
+        document.getElementById('btn-create-private').addEventListener('click', () => {
+            initAudio();
+            const privateCode = "PRV-" + Math.floor(Math.random() * 8999 + 1000);
+            window.connectToDatabaseRoom(privateCode);
+        });
+
+        document.getElementById('btn-join-private').addEventListener('click', () => {
+            document.getElementById('private-code-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-confirm-join').addEventListener('click', () => {
+            const code = document.getElementById('room-code-input').value.trim();
+            if (code.length > 0) {
+                initAudio();
+                document.getElementById('private-code-modal').classList.add('hidden');
+                window.connectToDatabaseRoom("PRV-" + code.toUpperCase());
+            }
+        });
+
+        document.getElementById('btn-cancel-join').addEventListener('click', () => {
+            document.getElementById('private-code-modal').classList.add('hidden');
+        });
+
+        document.getElementById('fov-slider').addEventListener('input', (e) => {
+            userFov = parseInt(e.target.value);
+            document.getElementById('fov-value').innerText = `${userFov}°`;
+            camera.fov = userFov;
+            camera.updateProjectionMatrix();
+        });
+
+        document.getElementById('sens-slider').addEventListener('input', (e) => {
+            mouseSens = parseFloat(e.target.value);
+            document.getElementById('sens-value').innerText = mouseSens.toFixed(1);
+        });
+
+        document.getElementById('player-name-input').addEventListener('change', (e) => {
+            window.myName = e.target.value || "Player1";
+        });
+
+        document.getElementById('btn-options').addEventListener('click', () => document.getElementById('options-menu').classList.remove('hidden'));
+        document.getElementById('btn-close-options').addEventListener('click', () => document.getElementById('options-menu').classList.add('hidden'));
+        document.getElementById('btn-howtoplay').addEventListener('click', () => document.getElementById('howtoplay-menu').classList.remove('hidden'));
+        document.getElementById('btn-close-howtoplay').addEventListener('click', () => document.getElementById('howtoplay-menu').classList.add('hidden'));
+
+        document.getElementById('btn-resume').addEventListener('click', () => switchGameState('PLAYING'));
+        document.getElementById('btn-pause-options').addEventListener('click', () => document.getElementById('options-menu').classList.remove('hidden'));
+        document.getElementById('btn-return-lobby').addEventListener('click', () => switchGameState('LOBBY'));
+        document.getElementById('btn-return-start').addEventListener('click', () => switchGameState('MENU'));
+        document.getElementById('btn-result-lobby').addEventListener('click', () => switchGameState('LOBBY'));
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            updatePlayerMovement(delta);
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            init3D();
+            animate();
+        };
+    </script>
+</body>
+</html>
